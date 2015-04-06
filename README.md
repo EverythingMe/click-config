@@ -66,7 +66,7 @@ $ python main.py --conf /tmp/conf.d
 log level: WARN, mysql host: remotehost
 ```
 
-Finally use can use the ```CONF``` environment variable as an alternative to the ```--conf``` command line option, use ':' as the delimiter:
+Finally, you can use the ```CONF``` environment variable as an alternative to the ```--conf``` command line option, use ':' as the delimiter:
 ```bash
 $ echo "logger: {level: WARN}" > /tmp/logger.yaml
 $ echo "mysql: {host: remotehost}" > /tmp/mysql.yaml
