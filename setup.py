@@ -9,6 +9,10 @@ requirements = [
     'click'
 ]
 
+test_requirements = [
+    'pytest'
+]
+
 setup(
     name='click-config',
     description='config parsing helper for click',
@@ -18,5 +22,6 @@ setup(
     version='1.1.1',
     packages=['click_config'],
     keywords=['click', 'config', 'yaml', 'ini', 'cli'],
-    install_requires=requirements
+    install_requires=requirements,
+    tests_require=test_requirements
 )

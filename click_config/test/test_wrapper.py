@@ -27,7 +27,7 @@ def main(log_level):
     assert Config.mysql.timeout == 0.5
 
 
-if __name__ == '__main__':
+def test():
     import sys
     import os
     sample = lambda f: os.path.join(os.path.dirname(__file__), 'samples', f)
@@ -35,4 +35,11 @@ if __name__ == '__main__':
     os.environ['CONF'] = sample('b.yaml')
     sys.argv = sys.argv[0:1] + ['--conf-mysql', 'host: localhost', '--conf', sample('a.yaml'),
                                 '--log-level', 'WARN']
-    main()
+    try:
+        main()
+    except SystemExit:
+        pass
+
+
+if __name__ == '__main__':
+    test()
