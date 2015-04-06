@@ -95,10 +95,10 @@ def _parse_arg(k, v):
     return section, key, ((key, k, v) for k, v in items)
 
 
-def wrap(fn=None, module=None, keys=(), env_var='CONF'):
+def wrap(fn=None, module=None, sections=(), env_var='CONF'):
     assert module is not None, "module cannot be None"
     if fn is None:
-        return functools.partial(wrap, module=module, keys=keys, env_var=env_var)
+        return functools.partial(wrap, module=module, sections=sections, env_var=env_var)
 
     @functools.wraps(fn)
     def wrapper(conf, **kwargs):
@@ -112,8 +112,8 @@ def wrap(fn=None, module=None, keys=(), env_var='CONF'):
         return fn(**kwargs_to_forward)
 
     wrapper = click.option('-c', '--conf', multiple=True, type=click.Path(exists=True))(wrapper)
-    for key in keys:
-        wrapper = click.option('--conf-{}'.format(key), multiple=True, type=str)(wrapper)
+    for section in sections:
+        wrapper = click.option('--conf-{}'.format(section), multiple=True, type=str)(wrapper)
 
     return wrapper
 

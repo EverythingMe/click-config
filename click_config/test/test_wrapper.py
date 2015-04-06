@@ -18,7 +18,7 @@ class Config(object):
 
 @click.command()
 @click.option('--log-level', type=str)
-@click_config.wrap(module=Config, keys=('logger', 'mysql'))
+@click_config.wrap(module=Config, sections=('logger', 'mysql'))
 def main(log_level):
     assert log_level == 'WARN'
     assert Config.mysql.host == 'localhost'
@@ -30,8 +30,9 @@ def main(log_level):
 if __name__ == '__main__':
     import sys
     import os
+    sample = lambda f: os.path.join(os.path.dirname(__file__), 'samples', f)
 
-    os.environ['CONF'] = 'samples/b.yaml'
-    sys.argv = sys.argv[0:1] + ['--conf-mysql', 'host: localhost', '--conf', 'samples/a.yaml',
+    os.environ['CONF'] = sample('b.yaml')
+    sys.argv = sys.argv[0:1] + ['--conf-mysql', 'host: localhost', '--conf', sample('a.yaml'),
                                 '--log-level', 'WARN']
     main()

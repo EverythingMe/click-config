@@ -20,8 +20,10 @@ def main():
 
 
 if __name__ == '__main__':
+    import sys
     import os
+    sample = lambda f: os.path.join(os.path.dirname(__file__), 'samples', f)
 
-    os.environ['TEST_CONF'] = 'samples/b.yaml:samples/a.yaml'
+    os.environ['TEST_CONF'] = ':'.join([sample('b.yaml'), sample('a.yaml')])
     click_config.load_from_env(Config, 'TEST_CONF')
     main()
