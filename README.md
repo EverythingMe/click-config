@@ -1,4 +1,4 @@
-Python2 config parsing helper for [click](http://click.pocoo.org)
+Python 2 config parsing helper for [click](http://click.pocoo.org)
 
 ```click-config``` provides a decorator that takes a python object and overwrites its attributes with values passed into the program via command line arguments.
 
