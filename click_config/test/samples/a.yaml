@@ -1,0 +1,3 @@
+mysql:
+    host: remotehost
+    port: 666
