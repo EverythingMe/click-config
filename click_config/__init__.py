@@ -1,11 +1,21 @@
 from __future__ import absolute_import, print_function
-from ConfigParser import ConfigParser
+
+try:
+    # PY2
+    # noinspection PyUnresolvedReferences
+    from ConfigParser import ConfigParser
+except ImportError:
+    # PY3
+    # noinspection PyUnresolvedReferences
+    from configparser import ConfigParser
+
 from itertools import chain, groupby
 
 import functools
 from operator import itemgetter
 import click
 import yaml
+import six
 import ast
 import sys
 import os
@@ -35,9 +45,9 @@ def loadYAML(f):
     with open(f) as f:
         data = yaml.load(f)
         if isinstance(data, dict):
-            for section, config in data.iteritems():
+            for section, config in six.iteritems(data):
                 if isinstance(config, dict):
-                    for k, v in config.iteritems():
+                    for k, v in six.iteritems(config):
                         yield section, k, v
 
 
@@ -91,7 +101,7 @@ def _configure_section(f, section, target, items):
 def _parse_arg(k, v):
     section = '<ARG>'
     key = k[5:]
-    items = flatten_dicts(map(yaml.load, v)).iteritems()
+    items = six.iteritems(flatten_dicts(map(yaml.load, v)))
     return section, key, ((key, k, v) for k, v in items)
 
 
@@ -103,11 +113,11 @@ def wrap(fn=None, module=None, sections=(), env_var='CONF'):
     @functools.wraps(fn)
     def wrapper(conf, **kwargs):
         conf = _parse_env(env_var) + conf
-        kwargs_to_forward = {k: v for k, v in kwargs.iteritems() if not k.startswith('conf_')}
-        kwargs_for_config = (_parse_arg(k, v) for k, v in kwargs.iteritems() if k.startswith('conf_') and v)
-        for f, section, items in chain(_parse_files(conf), kwargs_for_config):
-            target = getattr(module, section, None)
-            _configure_section(f, section, target, items)
+        kwargs_to_forward = {k: v for k, v in six.iteritems(kwargs) if not k.startswith('conf_')}
+        kwargs_for_config = (_parse_arg(k, v) for k, v in six.iteritems(kwargs) if k.startswith('conf_') and v)
+        for f, sect, items in chain(_parse_files(conf), kwargs_for_config):
+            target = getattr(module, sect, None)
+            _configure_section(f, sect, target, items)
 
         return fn(**kwargs_to_forward)
 
