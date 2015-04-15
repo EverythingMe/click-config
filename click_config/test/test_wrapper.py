@@ -1,8 +1,15 @@
 from __future__ import absolute_import
+import sys
+
 import click
 import click_config
+from click_config.test.test_inotify import revert_a_yaml, alter_a_yaml, wait_for_change
+import os
+
 
 __author__ = 'bergundy'
+
+sample = lambda f: os.path.join(os.path.dirname(__file__), 'samples', f)
 
 
 class Config(object):
@@ -18,8 +25,11 @@ class Config(object):
 
 @click.command()
 @click.option('--log-level', type=str)
-@click_config.wrap(module=Config, sections=('logger', 'mysql'))
+@click_config.wrap(module=Config, sections=('logger', 'mysql'), watch=False)
 def main(log_level):
+    """
+    :type watcher: click_config.inotify.Watcher
+    """
     assert log_level == 'WARN'
     assert Config.mysql.host == 'localhost'
     assert Config.mysql.port == 666
@@ -28,10 +38,6 @@ def main(log_level):
 
 
 def test():
-    import sys
-    import os
-    sample = lambda f: os.path.join(os.path.dirname(__file__), 'samples', f)
-
     os.environ['CONF'] = sample('b.yaml')
     sys.argv = sys.argv[0:1] + ['--conf-mysql', 'host: localhost', '--conf', sample('a.yaml'),
                                 '--log-level', 'WARN']

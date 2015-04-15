@@ -1,3 +1,1 @@
-mysql:
-    host: remotehost
-    port: 666
+mysql: {host: remotehost, port: 666}

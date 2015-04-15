@@ -6,7 +6,9 @@ except ImportError:
 requirements = [
     'six',
     'pyyaml',
-    'click'
+    'click',
+    'pyinotify',
+    'tornado'
 ]
 
 test_requirements = [

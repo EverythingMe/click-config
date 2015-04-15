@@ -31,13 +31,13 @@ def flatten_dicts(dicts):
     return base
 
 
-def _parse_files(paths):
-    for f in _extract_files_from_paths(paths):
+def _parse_files(files):
+    for f in files:
         loader = _get_loader(f)
         if loader is None:
             continue
 
-        for section, items in groupby(loader, key=itemgetter(0)):
+        for section, items in loader:
             yield f, section, items
 
 
@@ -46,9 +46,8 @@ def loadYAML(f):
         data = yaml.load(f)
         if isinstance(data, dict):
             for section, config in six.iteritems(data):
-                if isinstance(config, dict):
-                    for k, v in six.iteritems(config):
-                        yield section, k, v
+                if config and isinstance(config, dict):
+                    yield section, six.iteritems(config)
 
 
 def loadINI(f):
@@ -56,9 +55,7 @@ def loadINI(f):
     parser.optionxform = str
     parser.read(f)
     for section in parser.sections():
-        for k, v in parser.items(section, raw=True):
-            if v != '':
-                yield section, k, parse_value(v)
+        yield section, ((k, parse_value(v)) for k, v in parser.items(section, raw=True) if v != '')
 
 
 def parse_value(value):
@@ -92,32 +89,42 @@ def _parse_env(env_var):
 
 
 def _configure_section(f, section, target, items):
+    if target is None:
+        # silently ignore
+        return
     notify('Configuring section "{}" from "{}"'.format(section, f))
-    for item in items:
-        _, k, v = item
+    for k, v in items:
         setattr(target, k, v)
 
 
 def _parse_arg(k, v):
-    section = '<ARG>'
-    key = k[5:]
-    items = six.iteritems(flatten_dicts(map(yaml.load, v)))
-    return section, key, ((key, k, v) for k, v in items)
+    return '<ARG>', k[5:], six.iteritems(flatten_dicts(map(yaml.load, v)))
 
 
-def wrap(fn=None, module=None, sections=(), env_var='CONF'):
+def on_key_change(module, section, key, value):
+    target = getattr(module, section, None)
+    _configure_section('<WATCHER>', section, target, [(key, value)])
+
+
+def wrap(fn=None, module=None, sections=(), env_var='CONF', watch=False):
     assert module is not None, "module cannot be None"
     if fn is None:
-        return functools.partial(wrap, module=module, sections=sections, env_var=env_var)
+        return functools.partial(wrap, module=module, sections=sections, env_var=env_var, watch=watch)
 
     @functools.wraps(fn)
     def wrapper(conf, **kwargs):
         conf = _parse_env(env_var) + conf
         kwargs_to_forward = {k: v for k, v in six.iteritems(kwargs) if not k.startswith('conf_')}
         kwargs_for_config = (_parse_arg(k, v) for k, v in six.iteritems(kwargs) if k.startswith('conf_') and v)
-        for f, sect, items in chain(_parse_files(conf), kwargs_for_config):
+
+        for f, sect, items in chain(_parse_files(_extract_files_from_paths(conf)), kwargs_for_config):
             target = getattr(module, sect, None)
             _configure_section(f, sect, target, items)
+
+        if watch:
+            from .inotify import Watcher
+            kwargs_to_forward['watcher'] = watcher = Watcher(conf)
+            watcher.add_listener(watcher.ALL, functools.partial(on_key_change, module))
 
         return fn(**kwargs_to_forward)
 
