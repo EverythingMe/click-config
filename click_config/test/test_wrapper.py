@@ -3,7 +3,6 @@ import sys
 
 import click
 import click_config
-from click_config.test.test_inotify import revert_a_yaml, alter_a_yaml, wait_for_change
 import os
 
 

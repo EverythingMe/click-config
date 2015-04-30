@@ -42,7 +42,7 @@ def main(watcher):
     """
     :type watcher: click_config.inotify.Watcher
     """
-    watcher.io_loop.call_later(1, alter_yaml, 'a.yaml',
+    watcher.io_loop.call_later(0.01, alter_yaml, 'a.yaml',
                                {'mysql': {'port': Config.mysql.port + 1, 'host': 'remotehost'}})
     section, key, value = watcher.io_loop.run_sync(lambda: wait_for_change(('mysql', 'port'), watcher))
     watcher.stop()

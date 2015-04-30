@@ -1,5 +1,4 @@
 from __future__ import print_function
-from itertools import groupby
 from tornado import ioloop
 # noinspection PyUnresolvedReferences
 from .. import notify, _parse_files, _extract_files_from_paths
@@ -19,8 +18,6 @@ class Watcher(object):
         self.paths_to_watch = paths_to_watch
         for path in self.paths_to_watch:
             self.watch_path(path)
-            #self.watch_path(path, pyinotify.IN_CLOSE_NOWRITE | pyinotify.IN_CLOSE_WRITE)
-            #self.watch_path(path, pyinotify.ALL_EVENTS)
         self.listeners = {}
 
     def stop(self):

@@ -9,10 +9,10 @@ except ImportError:
     # noinspection PyUnresolvedReferences
     from configparser import ConfigParser
 
-from itertools import chain, groupby
+from itertools import chain
+from warnings import warn
 
 import functools
-from operator import itemgetter
 import click
 import yaml
 import six
@@ -22,6 +22,34 @@ import os
 
 __author__ = 'bergundy'
 notify = functools.partial(print, file=sys.stderr)
+
+DEFAULT_ENV_VAR = 'CONF'
+
+
+def load_from_env(module, env_var=DEFAULT_ENV_VAR, watch=False):
+    return Parser(module, _parse_env(env_var), env_var=env_var, watch=watch)
+
+
+def wrap(fn=None, module=None, sections=(), env_var=DEFAULT_ENV_VAR, watch=False):
+    if fn is None:
+        return functools.partial(wrap, module=module, sections=sections, env_var=env_var, watch=watch)
+
+    @functools.wraps(fn)
+    def wrapper(conf, **kwargs):
+        kwargs_to_forward = {k: v for k, v in six.iteritems(kwargs) if not k.startswith('conf_')}
+        overrides = (_parse_arg(k, v) for k, v in six.iteritems(kwargs) if k.startswith('conf_') and v)
+        parser = Parser(module, _parse_env(env_var) + conf, overrides, env_var, watch)
+        if watch:
+            kwargs_to_forward['watcher'] = parser.watcher
+
+        return fn(**kwargs_to_forward)
+
+    wrapper = click.option('-c', '--conf', multiple=True, type=click.Path(exists=True))(wrapper)
+
+    for section in sections:
+        wrapper = click.option('--conf-{}'.format(section), multiple=True, type=str)(wrapper)
+
+    return wrapper
 
 
 def flatten_dicts(dicts):
@@ -37,7 +65,7 @@ def _parse_files(files):
         if loader is None:
             continue
 
-        for section, items in loader:
+        for section, items in iter(loader):
             yield f, section, items
 
 
@@ -78,7 +106,7 @@ def _get_loader(f):
 def _extract_files_from_paths(paths):
     for path in paths:
         if os.path.isdir(path):
-            for f in os.listdir(path):
+            for f in sorted(os.listdir(path)):
                 yield os.path.join(path, f)
         else:
             yield path
@@ -88,56 +116,43 @@ def _parse_env(env_var):
     return tuple(filter(None, os.environ.get(env_var, '').split(':')))
 
 
-def _configure_section(f, section, target, items):
-    if target is None:
-        # silently ignore
-        return
-    notify('Configuring section "{}" from "{}"'.format(section, f))
-    for k, v in items:
-        setattr(target, k, v)
-
-
 def _parse_arg(k, v):
     return '<ARG>', k[5:], six.iteritems(flatten_dicts(map(yaml.load, v)))
 
 
-def on_key_change(module, section, key, value):
-    target = getattr(module, section, None)
-    _configure_section('<WATCHER>', section, target, [(key, value)])
+class Parser(object):
+    def __init__(self, module, paths, overrides=None, env_var=DEFAULT_ENV_VAR, watch=False):
+        self.module = module
+        self.env_var = env_var
+        self.watch = watch
+        self.config_paths = paths
+        self.overrides = overrides or []
+        for f, sect, items in chain(_parse_files(_extract_files_from_paths(self.config_paths)), self.overrides):
+            self._configure_section(f, sect, items)
 
-
-def wrap(fn=None, module=None, sections=(), env_var='CONF', watch=False):
-    assert module is not None, "module cannot be None"
-    if fn is None:
-        return functools.partial(wrap, module=module, sections=sections, env_var=env_var, watch=watch)
-
-    @functools.wraps(fn)
-    def wrapper(conf, **kwargs):
-        conf = _parse_env(env_var) + conf
-        kwargs_to_forward = {k: v for k, v in six.iteritems(kwargs) if not k.startswith('conf_')}
-        kwargs_for_config = (_parse_arg(k, v) for k, v in six.iteritems(kwargs) if k.startswith('conf_') and v)
-
-        for f, sect, items in chain(_parse_files(_extract_files_from_paths(conf)), kwargs_for_config):
-            target = getattr(module, sect, None)
-            _configure_section(f, sect, target, items)
-
-        if watch:
+        if self.watch:
             from .inotify import Watcher
-            kwargs_to_forward['watcher'] = watcher = Watcher(conf)
-            watcher.add_listener(watcher.ALL, functools.partial(on_key_change, module))
+            self.watcher = Watcher(self.config_paths)
+            self.watcher.add_listener(self.watcher.ALL, self._on_key_change)
 
-        return fn(**kwargs_to_forward)
+    def _on_key_change(self, section, key, value):
+        self._configure_section('<WATCHER>', section, [(key, value)])
 
-    wrapper = click.option('-c', '--conf', multiple=True, type=click.Path(exists=True))(wrapper)
-    for section in sections:
-        wrapper = click.option('--conf-{}'.format(section), multiple=True, type=str)(wrapper)
+    def _handle_missing_section(self, section, f):
+        warn('No section "{}" in module "{}" originating in file: "{}"'.format(section, self.module, f))
 
-    return wrapper
+    def _handle_missing_key(self, section, key, f):
+        warn('No key "{}" in section "{}" in module "{}" originating in file: "{}"'
+             .format(key, section, self.module, f))
 
-
-def load_from_env(module, env_var='CONF'):
-    assert module is not None, "module cannot be None"
-
-    for f, section, items in _parse_files(_parse_env(env_var)):
-        target = getattr(module, section, None)
-        _configure_section(f, section, target, items)
+    def _configure_section(self, f, section, items):
+        target = getattr(self.module, section, None)
+        if target is None:
+            # silently ignore
+            self._handle_missing_section(section, f)
+        notify('Configuring section "{}" from "{}"'.format(section, f))
+        for k, v in items:
+            try:
+                setattr(target, k, v)
+            except AttributeError:
+                self._handle_missing_key(section, k, f)
