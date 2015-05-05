@@ -75,6 +75,31 @@ log level: WARN, mysql host: remotehost
 ```
 
 
+## inotify support (ALPHA):
+
+```click-config``` also supports watching files using ```inotify``` and ```tornado```.
+To enable this feature you must install ```click-config``` with the ```inotify``` extra.
+```bash
+$ pip install 'click-config[inotify]'
+```
+To watch files simply invoke ```click_config.wrap()``` with ```watch=True```
+The configuration module will automatically be updated when the files change.
+When using this feature, the wrapped function will receive a ```watcher``` parameter which you can use to listen for key change events.
+
+```python
+def on_key_change(section, key, value):
+    pass
+
+@click.command()
+@click_config.wrap(module=config, sections=('logger', 'mysql'), watch=True)
+def main(watcher):
+    watcher.add_listener(('mysql', 'host'), on_key_change)  # watch a specific key
+    watcher.add_listener(('mysql', ), on_key_change)        # watch all keys in the 'mysql' section
+    watcher.add_listener(watcher.ALL, on_key_change)        # watch all keys in all sections
+    watcher.io_loop.start()
+```
+
+
 ## NOTES:
 
 * ```click-config``` will parse any file ending with ```.conf```, ```.ini```, ```.yml``` or ```.yaml```.
