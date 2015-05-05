@@ -127,13 +127,17 @@ class Parser(object):
         self.watch = watch
         self.config_paths = paths
         self.overrides = overrides or []
-        for f, sect, items in chain(_parse_files(_extract_files_from_paths(self.config_paths)), self.overrides):
-            self._configure_section(f, sect, items)
+
+        self.reload()
 
         if self.watch:
             from .inotify import Watcher
-            self.watcher = Watcher(self.config_paths)
+            self.watcher = Watcher(self)
             self.watcher.add_listener(self.watcher.ALL, self._on_key_change)
+
+    def reload(self):
+        for f, sect, items in chain(_parse_files(_extract_files_from_paths(self.config_paths)), self.overrides):
+            self._configure_section(f, sect, items)
 
     def _on_key_change(self, section, key, value):
         self._configure_section('<WATCHER>', section, [(key, value)])

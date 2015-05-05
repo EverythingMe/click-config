@@ -7,12 +7,16 @@ requirements = [
     'six',
     'pyyaml',
     'click',
-    'pyinotify',
-    'tornado'
+    'fn'
 ]
 
 test_requirements = [
     'pytest'
+]
+
+inotify_requirements = [
+    'pyinotify',
+    'tornado'
 ]
 
 setup(
@@ -25,5 +29,8 @@ setup(
     packages=['click_config'],
     keywords=['click', 'config', 'yaml', 'ini', 'cli'],
     install_requires=requirements,
-    tests_require=test_requirements
+    tests_require=test_requirements,
+    extras_require={
+        'inotify': inotify_requirements
+    }
 )
